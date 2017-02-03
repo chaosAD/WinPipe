@@ -1,13 +1,24 @@
+What is it?
+===========
+This is a example program to demonstrate how to communicate with a child process
+through pipe. The child perfoms input/output as usual using stdin/stdout like
+scanf(.) and printf(.). Pipe technique redirects the child's stdin/stdout to
+the in/out streams created by the parent program.
+
 To compile under MinGW
 ======================
 Type:
-   gcc Parent.c -o Parent.exe
-   gcc Child.c -o Child.exe
+```
+gcc Parent.c -o Parent.exe
+gcc Child.c -o Child.exe
+```
    
 To run
 ======
 Type:
-   ./Parent.exe HelloMsg.txt
+```
+./Parent.exe HelloMsg.txt
+```
    
 Note
 ====
@@ -23,9 +34,12 @@ the way I did [3].
 StringCchPrintf(.) is not available under MinGW. So I replaced it with
 snprintf(.) as suggested here [4].
    
-   
-References:
-[1]  https://msdn.microsoft.com/en-us/library/windows/desktop/ms682499(v=vs.85).aspx
-[2]  http://stackoverflow.com/questions/7955199/device-driver-windows-readfile-function-timeout
-[3]  http://stackoverflow.com/questions/13767989/named-pipe-reading-timeout
-[4]  http://betterlogic.com/roger/2010/08/undefined-reference-to-stringcchprintf/
+References
+==========
+1.  https://msdn.microsoft.com/en-us/library/windows/desktop/ms682499(v=vs.85).aspx
+
+2.  http://stackoverflow.com/questions/7955199/device-driver-windows-readfile-function-timeout
+
+3.  http://stackoverflow.com/questions/13767989/named-pipe-reading-timeout
+
+4.  http://betterlogic.com/roger/2010/08/undefined-reference-to-stringcchprintf/
