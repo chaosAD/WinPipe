@@ -1,6 +1,6 @@
 What is it?
 ===========
-This is a example program to demonstrate how to communicate with a child process
+This is an example program to demonstrate how to communicate with a child process
 through pipe. The child perfoms input/output as usual using stdin/stdout like
 scanf(.) and printf(.). Pipe technique redirects the child's stdin/stdout to
 the in/out streams created by the parent program.
@@ -31,6 +31,11 @@ suggested here [2]. However, it did not seem to work. It was still blocking on
 ReadFile(.). I am not sure why and I am not sure if it is possible to solve
 the way I did [3]. 
 
+A possible solution is to use `WaitForSingleObject(piProcInfo.hProcess, 10)` to
+determine if the child process has terminated every 10 milliseconds. See first
+example in [5] on how to wait until the child terminates using `INFINTE`. I
+have not tried this idea yet.
+
 StringCchPrintf(.) is not available under MinGW. So I replaced it with
 snprintf(.) as suggested here [4].
    
@@ -43,3 +48,5 @@ References
 3.  http://stackoverflow.com/questions/13767989/named-pipe-reading-timeout
 
 4.  http://betterlogic.com/roger/2010/08/undefined-reference-to-stringcchprintf/
+
+5.  http://www.catch22.net/tuts/undocumented-createprocess
