@@ -34,10 +34,16 @@ function does not wait, but returns immediately whether the object has signaled
 or not. This is to prevent blocking, so that the parent can continue its
 reading and printing. This idea came to me after reading [5].
 
+Another, but cleaner way [6] to do the same is perhaps using
+```
+GetExitCodeProcess(childProcInfo.hProcess, &exitCode) && exitCode == STILL_ACTIVE
+```
+But I have not tried yet.
+
 I previously attempted using asynchronous `ReadFile(.)` using `OVERLAPPED` to
 timeout if the child stopped writing for sometime (because it terminated) as
-suggested here [2]. However, it did not seem to work. It was still blocking on
-`ReadFile(.)`. I guess it is because `OVERLAPPED` only works for serial comm.
+suggested here [2]. However, it did not seem to work. It blocked on `ReadFile(.)`
+forever. I guess it is because `OVERLAPPED` only works for serial comm.
 like UART, but not stdin/stdout. See commit: 14352e24b5d39606 if you are
 interested to look at the code.
 
@@ -55,3 +61,7 @@ References
 4.  http://betterlogic.com/roger/2010/08/undefined-reference-to-stringcchprintf/
 
 5.  http://www.catch22.net/tuts/undocumented-createprocess
+
+6.  http://stackoverflow.com/questions/4063051/possible-to-have-a-timeout-on-readfile
+
+7.  "Introduction to CreateProcess()", http://www.cplusplus.com/forum/beginner/48283/
