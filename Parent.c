@@ -12,15 +12,16 @@ HANDLE g_hChildStd_OUT_Wr = NULL;
 
 HANDLE g_hInputFile = NULL;
 
-void CreateChildProcess(void);
+void CreateChildProcess(PROCESS_INFORMATION *piProcInfo);
 void WriteToPipe(void);
-void ReadFromPipe(void);
+void ReadFromPipe(PROCESS_INFORMATION *piProcInfo);
 void ErrorExit(PTSTR);
 
 int _tmain(int argc, TCHAR *argv[])
 {
    SECURITY_ATTRIBUTES saAttr;
-    
+   PROCESS_INFORMATION piProcInfo;
+
    printf("\n->Start of parent execution.\n");
 
 // Set the bInheritHandle flag so pipe handles are inherited.
@@ -51,9 +52,9 @@ int _tmain(int argc, TCHAR *argv[])
 
 // Create the child process.
    printf( "Before CreateChildProcess.\n");
-   CreateChildProcess();
+   CreateChildProcess(&piProcInfo);
    printf( "After CreateChildProcess.\n");
-   
+
 // Get a handle to an input file for the parent.
 // This example assumes a plain text file and uses string output to verify data flow.
 
@@ -82,8 +83,10 @@ int _tmain(int argc, TCHAR *argv[])
 // Read from pipe that is the standard output for child process.
 
    printf( "\n->Contents of child process STDOUT:\n\n");
-   ReadFromPipe();
-   
+   ReadFromPipe(&piProcInfo);
+
+   CloseHandle(piProcInfo.hProcess);
+
    printf("\n->End of parent execution.\n");
 
 // The remaining open handles are cleaned up when this process terminates.
@@ -92,17 +95,16 @@ int _tmain(int argc, TCHAR *argv[])
    return 0;
 }
 
-void CreateChildProcess()
+void CreateChildProcess(PROCESS_INFORMATION *childProcInfo)
 // Create a child process that uses the previously created pipes for STDIN and STDOUT.
 {
    TCHAR szCmdline[]=TEXT("child");
-   PROCESS_INFORMATION piProcInfo;
    STARTUPINFO siStartInfo;
    BOOL bSuccess = FALSE;
 
 // Set up members of the PROCESS_INFORMATION structure.
 
-   ZeroMemory( &piProcInfo, sizeof(PROCESS_INFORMATION) );
+   ZeroMemory( childProcInfo, sizeof(PROCESS_INFORMATION) );
 
 // Set up members of the STARTUPINFO structure.
 // This structure specifies the STDIN and STDOUT handles for redirection.
@@ -125,7 +127,7 @@ void CreateChildProcess()
       NULL,          // use parent's environment
       NULL,          // use parent's current directory
       &siStartInfo,  // STARTUPINFO pointer
-      &piProcInfo);  // receives PROCESS_INFORMATION
+      childProcInfo);  // receives PROCESS_INFORMATION
 
    // If an error occurs, exit the application.
    if ( ! bSuccess )
@@ -136,13 +138,12 @@ void CreateChildProcess()
       // Some applications might keep these handles to monitor the status
       // of the child process, for example.
 
-      CloseHandle(piProcInfo.hProcess);
-      CloseHandle(piProcInfo.hThread);
+//      CloseHandle(childProcInfo->hProcess);
+      CloseHandle(childProcInfo->hThread);
    }
 }
 
 void WriteToPipe(void)
-
 // Read from a file and write its contents to the pipe for the child's STDIN.
 // Stop when there is no more data.
 {
@@ -165,8 +166,7 @@ void WriteToPipe(void)
       ErrorExit(TEXT("StdInWr CloseHandle"));
 }
 
-void ReadFromPipe(void)
-
+void ReadFromPipe(PROCESS_INFORMATION *childProcInfo)
 // Read output from the child process's pipe for STDOUT
 // and write to the parent process's pipe for STDOUT.
 // Stop when there is no more data.
@@ -174,51 +174,31 @@ void ReadFromPipe(void)
    DWORD dwRead, dwWritten;
    CHAR chBuf[BUFSIZE];
    BOOL bSuccess = FALSE;
-   OVERLAPPED overlapped;
    DWORD result;
    HANDLE hParentStdOut = GetStdHandle(STD_OUTPUT_HANDLE);
 
-   // Must zero out overlapped data structure!!!
-   ZeroMemory(&overlapped, sizeof(OVERLAPPED));
-   overlapped.Offset = 4096;     // ??? Not sure what this do
-	 overlapped.hEvent = CreateEvent(NULL, TRUE, FALSE, NULL);         
-   for (;;)
-   {
-      // !!!! This is supposed to asynchronous read using overlapped... but
-      // it seems to block in ReadFile(.) when no data is received. What is
-      // wrong ?!?      
-      bSuccess = ReadFile( g_hChildStd_OUT_Rd, chBuf, BUFSIZE, NULL, &overlapped);
-      printf("try waiting... \n");  
-      result = WaitForSingleObject(g_hChildStd_OUT_Rd, 1000);  // Wait till a read is made or timeout
-      if(result == WAIT_OBJECT_0) {
-        printf("object is signaled...\n");  // The read is successfull
-      } else if(result == WAIT_TIMEOUT) {
-        printf("timeout... \n");            // The read has timeout
-        break;
-      }
-      // Get result
-      bSuccess = GetOverlappedResult(g_hChildStd_OUT_Rd, &overlapped, &dwRead, TRUE);      
+   // Loop till the child process terminated (by signaling to parent)
+   while(WaitForSingleObject(childProcInfo->hProcess, 0) != WAIT_OBJECT_0) {
+      bSuccess = ReadFile( g_hChildStd_OUT_Rd, chBuf, BUFSIZE, &dwRead, NULL);
       printf("dwRead: %d\n", dwRead);
-      
-      if( ! bSuccess || dwRead == 0 ) 
+
+      if( ! bSuccess || dwRead == 0 )
         break;
-      
-      bSuccess = WriteFile(hParentStdOut, chBuf,
-                           dwRead, &dwWritten, NULL);
-      printf("dwWritten: %d\n", dwWritten);     
-      
-      if (! bSuccess ) 
+
+      bSuccess = WriteFile(hParentStdOut, chBuf, dwRead, &dwWritten, NULL);
+      printf("dwWritten: %d\n", dwWritten);
+
+      if (! bSuccess )
         break;
-      
-      printf("looping...\n");                     
+
+      printf("looping...\n");
    }
- 
+
    if ( ! CloseHandle(g_hChildStd_OUT_Rd) )
-      ErrorExit(TEXT("StdOutRd CloseHandle"));   
+      ErrorExit(TEXT("StdOutRd CloseHandle"));
 }
 
 void ErrorExit(PTSTR lpszFunction)
-
 // Format a readable error message, display a message box,
 // and exit from the application.
 {
